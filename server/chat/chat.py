@@ -46,6 +46,7 @@ async def chat(query: str = Body(..., description="用户输入", examples=["恼
             conversation_callback = ConversationCallbackHandler(conversation_id=conversation_id, message_id=message_id,
                                                                 chat_type="llm_chat",
                                                                 query=query)
+            # 自定义了一个回调函数，并且通过AsyncIteratorCallbackHandler异步处理大模型返回的结果
             callbacks.append(conversation_callback)
 
         if isinstance(max_tokens, int) and max_tokens <= 0:
@@ -81,6 +82,7 @@ async def chat(query: str = Body(..., description="用户输入", examples=["恼
 
         # Begin a task that runs in the background.
         task = asyncio.create_task(wrap_done(
+            # acall读取llm数据，没读到一个token，就向AsyncIteratorCallbackHandler中的队列里面写
             chain.acall({"input": query}),
             callback.done),
         )
@@ -98,7 +100,7 @@ async def chat(query: str = Body(..., description="用户输入", examples=["恼
             yield json.dumps(
                 {"text": answer, "message_id": message_id},
                 ensure_ascii=False)
-
+        # 出发任务执行
         await task
 
     return StreamingResponse(chat_iterator(), media_type="text/event-stream")

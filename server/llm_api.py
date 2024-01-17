@@ -14,8 +14,13 @@ def list_running_models(
     '''
     try:
         controller_address = controller_address or fschat_controller_address()
+        # 在 Python 的 get_httpx_client() 上下文中，with 语句用于确保资源（如网络连接）在使用后被适当地释放或关闭。具体来说，当你在使用 with 语句时，Python 会自动调用一些特殊方法，例如 __enter__() 和 __exit__()，来处理资源的创建和销毁。
+        # 以 get_httpx_client() 为例，这个函数可能返回一个 HTTP 客户端对象，该对象用于发送 HTTP 请求。使用 with 语句可以确保在代码块执行完毕后，这个客户端对象被适当地关闭或释放，从而避免资源泄漏。
         with get_httpx_client() as client:
             r = client.post(controller_address + "/list_models")
+            # 这是一个 Python 代码片段，它从响应中提取 JSON 数据，并从中获取 "models" 字段的值。
+            # r 是一个响应对象，它通常是由 HTTP 客户端（如 requests 或 httpx）返回的。r.json() 方法用于将响应内容解析为 JSON 对象。
+            # ["models"] 是一个索引表达式，用于从 JSON 对象中获取 "models" 字段的值。这个字段通常是一个数组，包含了模型对象的信息。
             models = r.json()["models"]
             data = {m: get_model_config(m).data for m in models}
             return BaseResponse(data=data)

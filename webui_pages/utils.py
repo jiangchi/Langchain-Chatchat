@@ -1,7 +1,6 @@
 # 该文件封装了对api.py的请求，可以被不同的webui使用
 # 通过ApiRequest和AsyncApiRequest支持同步/异步调用
 
-
 from typing import *
 from pathlib import Path
 # 此处导入的配置为发起请求（如WEBUI）机器上的配置，主要用于为前端设置默认值。分布式部署时可以与服务器上的不同
@@ -17,7 +16,8 @@ from configs import (
     VECTOR_SEARCH_TOP_K,
     SEARCH_ENGINE_TOP_K,
     HTTPX_DEFAULT_TIMEOUT,
-    logger, log_verbose,
+    logger,
+    log_verbose,
 )
 import httpx
 import contextlib
@@ -25,9 +25,7 @@ import json
 import os
 from io import BytesIO
 from server.utils import set_httpx_config, api_address, get_httpx_client
-
-from pprint import pprint
-
+import logging
 
 set_httpx_config()
 
@@ -36,6 +34,7 @@ class ApiRequest:
     '''
     api.py调用的封装（同步模式）,简化api调用方式
     '''
+
     def __init__(
         self,
         base_url: str = api_address(),
@@ -65,7 +64,10 @@ class ApiRequest:
         while retry > 0:
             try:
                 if stream:
-                    return self.client.stream("GET", url, params=params, **kwargs)
+                    return self.client.stream("GET",
+                                              url,
+                                              params=params,
+                                              **kwargs)
                 else:
                     return self.client.get(url, params=params, **kwargs)
             except Exception as e:
@@ -87,9 +89,16 @@ class ApiRequest:
             try:
                 # print(kwargs)
                 if stream:
-                    return self.client.stream("POST", url, data=data, json=json, **kwargs)
+                    return self.client.stream("POST",
+                                              url,
+                                              data=data,
+                                              json=json,
+                                              **kwargs)
                 else:
-                    return self.client.post(url, data=data, json=json, **kwargs)
+                    return self.client.post(url,
+                                            data=data,
+                                            json=json,
+                                            **kwargs)
             except Exception as e:
                 msg = f"error when post {url}: {e}"
                 logger.error(f'{e.__class__.__name__}: {msg}',
@@ -108,9 +117,16 @@ class ApiRequest:
         while retry > 0:
             try:
                 if stream:
-                    return self.client.stream("DELETE", url, data=data, json=json, **kwargs)
+                    return self.client.stream("DELETE",
+                                              url,
+                                              data=data,
+                                              json=json,
+                                              **kwargs)
                 else:
-                    return self.client.delete(url, data=data, json=json, **kwargs)
+                    return self.client.delete(url,
+                                              data=data,
+                                              json=json,
+                                              **kwargs)
             except Exception as e:
                 msg = f"error when delete {url}: {e}"
                 logger.error(f'{e.__class__.__name__}: {msg}',
@@ -125,11 +141,12 @@ class ApiRequest:
         '''
         将httpx.stream返回的GeneratorContextManager转化为普通生成器
         '''
+
         async def ret_async(response, as_json):
             try:
                 async with response as r:
                     async for chunk in r.aiter_text(None):
-                        if not chunk: # fastchat api yield empty bytes on start and end
+                        if not chunk:  # fastchat api yield empty bytes on start and end
                             continue
                         if as_json:
                             try:
@@ -138,8 +155,9 @@ class ApiRequest:
                                 yield data
                             except Exception as e:
                                 msg = f"接口返回json错误： ‘{chunk}’。错误信息是：{e}。"
-                                logger.error(f'{e.__class__.__name__}: {msg}',
-                                            exc_info=e if log_verbose else None)
+                                logger.error(
+                                    f'{e.__class__.__name__}: {msg}',
+                                    exc_info=e if log_verbose else None)
                         else:
                             # print(chunk, end="", flush=True)
                             yield chunk
@@ -154,24 +172,26 @@ class ApiRequest:
             except Exception as e:
                 msg = f"API通信遇到错误：{e}"
                 logger.error(f'{e.__class__.__name__}: {msg}',
-                            exc_info=e if log_verbose else None)
+                             exc_info=e if log_verbose else None)
                 yield {"code": 500, "msg": msg}
 
         def ret_sync(response, as_json):
             try:
                 with response as r:
                     for chunk in r.iter_text(None):
-                        if not chunk: # fastchat api yield empty bytes on start and end
+                        if not chunk:  # fastchat api yield empty bytes on start and end
                             continue
                         if as_json:
                             try:
                                 data = json.loads(chunk)
                                 # pprint(data, depth=1)
+                                log.info("This is an informational ret_sync....................=%s", data)
                                 yield data
                             except Exception as e:
                                 msg = f"接口返回json错误： ‘{chunk}’。错误信息是：{e}。"
-                                logger.error(f'{e.__class__.__name__}: {msg}',
-                                            exc_info=e if log_verbose else None)
+                                logger.error(
+                                    f'{e.__class__.__name__}: {msg}',
+                                    exc_info=e if log_verbose else None)
                         else:
                             # print(chunk, end="", flush=True)
                             yield chunk
@@ -186,7 +206,7 @@ class ApiRequest:
             except Exception as e:
                 msg = f"API通信遇到错误：{e}"
                 logger.error(f'{e.__class__.__name__}: {msg}',
-                            exc_info=e if log_verbose else None)
+                             exc_info=e if log_verbose else None)
                 yield {"code": 500, "msg": msg}
 
         if self._use_async:
@@ -205,6 +225,7 @@ class ApiRequest:
         `as_json`: 返回json
         `value_func`: 用户可以自定义返回值，该函数接受response或json
         '''
+
         def to_json(r):
             try:
                 return r.json()
@@ -212,7 +233,7 @@ class ApiRequest:
                 msg = "API未能返回正确的JSON。" + str(e)
                 if log_verbose:
                     logger.error(f'{e.__class__.__name__}: {msg}',
-                                exc_info=e if log_verbose else None)
+                                 exc_info=e if log_verbose else None)
                 return {"code": 500, "msg": msg, "data": None}
 
         if value_func is None:
@@ -239,7 +260,9 @@ class ApiRequest:
 
     def list_search_engines(self, **kwargs) -> List:
         response = self.post("/server/list_search_engines", **kwargs)
-        return self._get_response_value(response, as_json=True, value_func=lambda r: r["data"])
+        return self._get_response_value(response,
+                                        as_json=True,
+                                        value_func=lambda r: r["data"])
 
     def get_prompt_template(
         self,
@@ -251,7 +274,9 @@ class ApiRequest:
             "type": type,
             "name": name,
         }
-        response = self.post("/server/get_prompt_template", json=data, **kwargs)
+        response = self.post("/server/get_prompt_template",
+                             json=data,
+                             **kwargs)
         return self._get_response_value(response, value_func=lambda r: r.text)
 
     # 对话相关操作
@@ -288,17 +313,17 @@ class ApiRequest:
         return self._httpx_stream2generator(response)
 
     def chat_chat(
-            self,
-            query: str,
-            conversation_id: str = None,
-            history_len: int = -1,
-            history: List[Dict] = [],
-            stream: bool = True,
-            model: str = LLM_MODELS[0],
-            temperature: float = TEMPERATURE,
-            max_tokens: int = None,
-            prompt_name: str = "default",
-            **kwargs,
+        self,
+        query: str,
+        conversation_id: str = None,
+        history_len: int = -1,
+        history: List[Dict] = [],
+        stream: bool = True,
+        model: str = LLM_MODELS[0],
+        temperature: float = TEMPERATURE,
+        max_tokens: int = None,
+        prompt_name: str = "default",
+        **kwargs,
     ):
         '''
         对应api.py/chat/chat接口
@@ -317,7 +342,15 @@ class ApiRequest:
 
         # print(f"received input message:")
         # pprint(data)
+        log.info("This is an informational chat_chat log....................=%s", data)
+        logger.info("This is an informational chat_chat logger....................=%s", data)
+        """ 这段代码是使用 Python 的 requests 库发送 POST 请求到指定的 URL，并将响应内容存储在 response 变量中。
 
+        具体来说，这段代码向 API 服务器发送了一个 POST 请求，请求的 URL 是 /chat/chat，请求的 JSON 数据是 data 变量，请求的流模式是 stream=True，其他参数包括 **kwargs。
+
+        请求的响应内容被存储在 response 变量中，并且该变量具有 stream 属性，可以以流模式读取响应内容。
+
+        这段代码可能用于与聊天机器人进行交互，例如向聊天机器人发送消息并获取回复。具体实现方式可能需要根据具体的 API 服务器和聊天机器人服务提供商进行调整。 """
         response = self.post("/chat/chat", json=data, stream=True, **kwargs)
         return self._httpx_stream2generator(response, as_json=True)
 
@@ -400,18 +433,19 @@ class ApiRequest:
         '''
         对应api.py/knowledge_base/upload_tmep_docs接口
         '''
+
         def convert_file(file, filename=None):
-            if isinstance(file, bytes): # raw bytes
+            if isinstance(file, bytes):  # raw bytes
                 file = BytesIO(file)
-            elif hasattr(file, "read"): # a file io like object
+            elif hasattr(file, "read"):  # a file io like object
                 filename = filename or file.name
-            else: # a local path
+            else:  # a local path
                 file = Path(file).absolute().open("rb")
                 filename = filename or os.path.split(file.name)[-1]
             return filename, file
 
         files = [convert_file(file) for file in files]
-        data={
+        data = {
             "knowledge_id": knowledge_id,
             "chunk_size": chunk_size,
             "chunk_overlap": chunk_overlap,
@@ -505,9 +539,7 @@ class ApiRequest:
 
     # 知识库相关操作
 
-    def list_knowledge_bases(
-        self,
-    ):
+    def list_knowledge_bases(self, ):
         '''
         对应api.py/knowledge_base/list_knowledge_bases接口
         '''
@@ -559,8 +591,7 @@ class ApiRequest:
         '''
         response = self.get(
             "/knowledge_base/list_files",
-            params={"knowledge_base_name": knowledge_base_name}
-        )
+            params={"knowledge_base_name": knowledge_base_name})
         return self._get_response_value(response,
                                         as_json=True,
                                         value_func=lambda r: r.get("data", []))
@@ -603,18 +634,19 @@ class ApiRequest:
         '''
         对应api.py/knowledge_base/upload_docs接口
         '''
+
         def convert_file(file, filename=None):
-            if isinstance(file, bytes): # raw bytes
+            if isinstance(file, bytes):  # raw bytes
                 file = BytesIO(file)
-            elif hasattr(file, "read"): # a file io like object
+            elif hasattr(file, "read"):  # a file io like object
                 filename = filename or file.name
-            else: # a local path
+            else:  # a local path
                 file = Path(file).absolute().open("rb")
                 filename = filename or os.path.split(file.name)[-1]
             return filename, file
 
         files = [convert_file(file) for file in files]
-        data={
+        data = {
             "knowledge_base_name": knowledge_base_name,
             "override": override,
             "to_vector_store": to_vector_store,
@@ -657,8 +689,7 @@ class ApiRequest:
         )
         return self._get_response_value(response, as_json=True)
 
-
-    def update_kb_info(self,knowledge_base_name,kb_info):
+    def update_kb_info(self, knowledge_base_name, kb_info):
         '''
         对应api.py/knowledge_base/update_info接口
         '''
@@ -757,15 +788,18 @@ class ApiRequest:
             "/llm_model/list_running_models",
             json=data,
         )
-        return self._get_response_value(response, as_json=True, value_func=lambda r:r.get("data", []))
+        return self._get_response_value(response,
+                                        as_json=True,
+                                        value_func=lambda r: r.get("data", []))
 
-
-    def get_default_llm_model(self, local_first: bool = True) -> Tuple[str, bool]:
+    def get_default_llm_model(self,
+                              local_first: bool = True) -> Tuple[str, bool]:
         '''
         从服务器上获取当前运行的LLM模型。
         当 local_first=True 时，优先返回运行中的本地模型，否则优先按LLM_MODELS配置顺序返回。
         返回类型为（model_name, is_local_model）
         '''
+
         def ret_sync():
             running_models = self.list_running_models()
             if not running_models:
@@ -782,7 +816,7 @@ class ApiRequest:
                     model = m
                     break
 
-            if not model: # LLM_MODELS中配置的模型都不在running_models里
+            if not model:  # LLM_MODELS中配置的模型都不在running_models里
                 model = list(running_models)[0]
             is_local = not running_models[model].get("online_api")
             return model, is_local
@@ -803,7 +837,7 @@ class ApiRequest:
                     model = m
                     break
 
-            if not model: # LLM_MODELS中配置的模型都不在running_models里
+            if not model:  # LLM_MODELS中配置的模型都不在running_models里
                 model = list(running_models)[0]
             is_local = not running_models[model].get("online_api")
             return model, is_local
@@ -827,7 +861,9 @@ class ApiRequest:
             "/llm_model/list_config_models",
             json=data,
         )
-        return self._get_response_value(response, as_json=True, value_func=lambda r:r.get("data", {}))
+        return self._get_response_value(response,
+                                        as_json=True,
+                                        value_func=lambda r: r.get("data", {}))
 
     def get_model_config(
         self,
@@ -836,23 +872,25 @@ class ApiRequest:
         '''
         获取服务器上模型配置
         '''
-        data={
+        data = {
             "model_name": model_name,
         }
         response = self.post(
             "/llm_model/get_model_config",
             json=data,
         )
-        return self._get_response_value(response, as_json=True, value_func=lambda r:r.get("data", {}))
+        return self._get_response_value(response,
+                                        as_json=True,
+                                        value_func=lambda r: r.get("data", {}))
 
     def list_search_engines(self) -> List[str]:
         '''
         获取服务器支持的搜索引擎
         '''
-        response = self.post(
-            "/server/list_search_engines",
-        )
-        return self._get_response_value(response, as_json=True, value_func=lambda r:r.get("data", {}))
+        response = self.post("/server/list_search_engines", )
+        return self._get_response_value(response,
+                                        as_json=True,
+                                        value_func=lambda r: r.get("data", {}))
 
     def stop_llm_model(
         self,
@@ -884,18 +922,12 @@ class ApiRequest:
         向fastchat controller请求切换LLM模型。
         '''
         if not model_name or not new_model_name:
-            return {
-                "code": 500,
-                "msg": f"未指定模型名称"
-            }
+            return {"code": 500, "msg": f"未指定模型名称"}
 
         def ret_sync():
             running_models = self.list_running_models()
             if new_model_name == model_name or new_model_name in running_models:
-                return {
-                    "code": 200,
-                    "msg": "无需切换"
-                }
+                return {"code": 200, "msg": "无需切换"}
 
             if model_name not in running_models:
                 return {
@@ -925,10 +957,7 @@ class ApiRequest:
         async def ret_async():
             running_models = await self.list_running_models()
             if new_model_name == model_name or new_model_name in running_models:
-                return {
-                    "code": 200,
-                    "msg": "无需切换"
-                }
+                return {"code": 200, "msg": "无需切换"}
 
             if model_name not in running_models:
                 return {
@@ -978,7 +1007,9 @@ class ApiRequest:
             "/other/embed_texts",
             json=data,
         )
-        return self._get_response_value(resp, as_json=True, value_func=lambda r: r.get("data"))
+        return self._get_response_value(resp,
+                                        as_json=True,
+                                        value_func=lambda r: r.get("data"))
 
     def chat_feedback(
         self,
@@ -999,12 +1030,16 @@ class ApiRequest:
 
 
 class AsyncApiRequest(ApiRequest):
-    def __init__(self, base_url: str = api_address(), timeout: float = HTTPX_DEFAULT_TIMEOUT):
+
+    def __init__(self,
+                 base_url: str = api_address(),
+                 timeout: float = HTTPX_DEFAULT_TIMEOUT):
         super().__init__(base_url, timeout)
         self._use_async = True
 
 
-def check_error_msg(data: Union[str, dict, list], key: str = "errorMsg") -> str:
+def check_error_msg(data: Union[str, dict, list],
+                    key: str = "errorMsg") -> str:
     '''
     return error message if error occured when requests API
     '''
@@ -1020,10 +1055,8 @@ def check_success_msg(data: Union[str, dict, list], key: str = "msg") -> str:
     '''
     return error message if error occured when requests API
     '''
-    if (isinstance(data, dict)
-        and key in data
-        and "code" in data
-        and data["code"] == 200):
+    if (isinstance(data, dict) and key in data and "code" in data
+            and data["code"] == 200):
         return data[key]
     return ""
 
@@ -1031,6 +1064,9 @@ def check_success_msg(data: Union[str, dict, list], key: str = "msg") -> str:
 if __name__ == "__main__":
     api = ApiRequest()
     aapi = AsyncApiRequest()
+    logging.basicConfig(format='%(asctime)s | %(levelname)s | %(message)s',
+                        level=logging.INFO)
+    log = logging.getLogger(__name__)
 
     # print(api.chat_fastchat(
     #     messages=[{"role": "user", "content": "hello"}]

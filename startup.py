@@ -7,50 +7,77 @@ from multiprocessing import Process
 from datetime import datetime
 from pprint import pprint
 
-
 # 设置numexpr最大线程数，默认为CPU核心数
 try:
     import numexpr
 
+    # 检测CPU核心数
     n_cores = numexpr.utils.detect_number_of_cores()
+    # 设置环境变量--str(n_cores) 是一个 Python 代码片段，它将一个整数（n_cores）转换为字符串类型。在 Python 中，整数类型是 int，字符串类型是 str。将整数转换为字符串类型可以使其更易于阅读和操作。
+
+    # 例如，如果你有一个名为 n_cores 的整数变量，你可以使用 str(n_cores) 来将其转换为字符串
     os.environ["NUMEXPR_MAX_THREADS"] = str(n_cores)
 except:
     pass
 
+# 添加当前文件夹的上一级文件夹到sys.path中
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+#configs是目录，以下配置可以搜索所有目录下面的文件里面的配置项
 from configs import (
+    # 设置日志路径
     LOG_PATH,
+    # 设置日志级别
     log_verbose,
+    # 设置日志对象
     logger,
+    # 设置LLM模型
     LLM_MODELS,
+    # 设置嵌入模型
     EMBEDDING_MODEL,
+    # 设置文本分割器名称
     TEXT_SPLITTER_NAME,
+    # 设置FSchat控制器
     FSCHAT_CONTROLLER,
+    # 设置FSchat OpenAI API
     FSCHAT_OPENAI_API,
+    # 设置FSchat模型工作者
     FSCHAT_MODEL_WORKERS,
+    # 设置API服务器
     API_SERVER,
+    # 设置WebUI服务器
     WEBUI_SERVER,
+    # 设置HTTPX默认超时
     HTTPX_DEFAULT_TIMEOUT,
 )
-from server.utils import (fschat_controller_address, fschat_model_worker_address,
-                          fschat_openai_api_address, set_httpx_config, get_httpx_client,
-                          get_model_worker_config, get_all_model_worker_configs,
-                          MakeFastAPIOffline, FastAPI, llm_device, embedding_device)
+'''
+导入fschat_controller_address等函数
+例如：
+from math import sqrt
+sqrt(16)  # 返回4.0
+'''
+
+from server.utils import (fschat_controller_address,
+                          fschat_model_worker_address,
+                          fschat_openai_api_address, set_httpx_config,
+                          get_httpx_client, get_model_worker_config,
+                          get_all_model_worker_configs, MakeFastAPIOffline,
+                          FastAPI, llm_device, embedding_device)
 import argparse
 from typing import Tuple, List, Dict
 from configs import VERSION
 
 
 def create_controller_app(
-        dispatch_method: str,
-        log_level: str = "INFO",
+    dispatch_method: str,
+    log_level: str = "INFO",
 ) -> FastAPI:
     import fastchat.constants
     fastchat.constants.LOGDIR = LOG_PATH
     from fastchat.serve.controller import app, Controller, logger
     logger.setLevel(log_level)
-
+    #"lottery", "shortest_queue" 训练方法的方法
     controller = Controller(dispatch_method)
+    # 这段代码使用了Python的 sys.modules 字典来查找名为 fastchat.serve.controller 的模块，然后将 controller 对象的引用分配给该模块。这样，在以后使用这个模块时，就可以通过该模块访问 controller 对象。
     sys.modules["fastchat.serve.controller"].controller = controller
 
     MakeFastAPIOffline(app)
@@ -87,7 +114,7 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
 
     for k, v in kwargs.items():
         setattr(args, k, v)
-    if worker_class := kwargs.get("langchain_model"): #Langchian支持的模型不用做操作
+    if worker_class := kwargs.get("langchain_model"):  #Langchian支持的模型不用做操作
         from fastchat.serve.base_model_worker import app
         worker = ""
     # 在线模型API
@@ -98,20 +125,22 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
                               controller_addr=args.controller_address,
                               worker_addr=args.worker_address)
         # sys.modules["fastchat.serve.base_model_worker"].worker = worker
-        sys.modules["fastchat.serve.base_model_worker"].logger.setLevel(log_level)
+        sys.modules["fastchat.serve.base_model_worker"].logger.setLevel(
+            log_level)
     # 本地模型
     else:
         from configs.model_config import VLLM_MODEL_DICT
-        if kwargs["model_names"][0] in VLLM_MODEL_DICT and args.infer_turbo == "vllm":
+        if kwargs["model_names"][
+                0] in VLLM_MODEL_DICT and args.infer_turbo == "vllm":
             import fastchat.serve.vllm_worker
             from fastchat.serve.vllm_worker import VLLMWorker, app, worker_id
             from vllm import AsyncLLMEngine
-            from vllm.engine.arg_utils import AsyncEngineArgs,EngineArgs
+            from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
 
-            args.tokenizer = args.model_path # 如果tokenizer与model_path不一致在此处添加
+            args.tokenizer = args.model_path  # 如果tokenizer与model_path不一致在此处添加
             args.tokenizer_mode = 'auto'
-            args.trust_remote_code= True
-            args.download_dir= None
+            args.trust_remote_code = True
+            args.download_dir = None
             args.load_format = 'auto'
             args.dtype = 'auto'
             args.seed = 0
@@ -121,13 +150,13 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
             args.block_size = 16
             args.swap_space = 4  # GiB
             args.gpu_memory_utilization = 0.90
-            args.max_num_batched_tokens = None # 一个批次中的最大令牌（tokens）数量，这个取决于你的显卡和大模型设置，设置太大显存会不够
+            args.max_num_batched_tokens = None  # 一个批次中的最大令牌（tokens）数量，这个取决于你的显卡和大模型设置，设置太大显存会不够
             args.max_num_seqs = 256
             args.disable_log_stats = False
             args.conv_template = None
             args.limit_worker_concurrency = 5
             args.no_register = False
-            args.num_gpus = 4 # vllm worker的切分是tensor并行，这里填写显卡的数量
+            args.num_gpus = 4  # vllm worker的切分是tensor并行，这里填写显卡的数量
             args.engine_use_ray = False
             args.disable_log_requests = False
 
@@ -137,10 +166,10 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
             args.quantization = None
             args.max_log_len = None
             args.tokenizer_revision = None
-            
+
             # 0.2.2 vllm需要新加的参数
             args.max_paddings = 256
-            
+
             if args.model_path:
                 args.model = args.model_path
             if args.num_gpus > 1:
@@ -153,24 +182,25 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
             engine = AsyncLLMEngine.from_engine_args(engine_args)
 
             worker = VLLMWorker(
-                        controller_addr = args.controller_address,
-                        worker_addr = args.worker_address,
-                        worker_id = worker_id,
-                        model_path = args.model_path,
-                        model_names = args.model_names,
-                        limit_worker_concurrency = args.limit_worker_concurrency,
-                        no_register = args.no_register,
-                        llm_engine =  engine,
-                        conv_template = args.conv_template,
-                        )
+                controller_addr=args.controller_address,
+                worker_addr=args.worker_address,
+                worker_id=worker_id,
+                model_path=args.model_path,
+                model_names=args.model_names,
+                limit_worker_concurrency=args.limit_worker_concurrency,
+                no_register=args.no_register,
+                llm_engine=engine,
+                conv_template=args.conv_template,
+            )
             sys.modules["fastchat.serve.vllm_worker"].engine = engine
             sys.modules["fastchat.serve.vllm_worker"].worker = worker
-            sys.modules["fastchat.serve.vllm_worker"].logger.setLevel(log_level)
+            sys.modules["fastchat.serve.vllm_worker"].logger.setLevel(
+                log_level)
 
         else:
             from fastchat.serve.model_worker import app, GptqConfig, AWQConfig, ModelWorker, worker_id
 
-            args.gpus = "0" # GPU的编号,如果有多个GPU，可以设置为"0,1,2,3"
+            args.gpus = "0"  # GPU的编号,如果有多个GPU，可以设置为"0,1,2,3"
             args.max_gpu_memory = "22GiB"
             args.num_gpus = 1  # model worker的切分是model并行，这里填写显卡的数量
 
@@ -231,9 +261,11 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
                 embed_in_truncate=args.embed_in_truncate,
             )
             sys.modules["fastchat.serve.model_worker"].args = args
-            sys.modules["fastchat.serve.model_worker"].gptq_config = gptq_config
+            sys.modules[
+                "fastchat.serve.model_worker"].gptq_config = gptq_config
             # sys.modules["fastchat.serve.model_worker"].worker = worker
-            sys.modules["fastchat.serve.model_worker"].logger.setLevel(log_level)
+            sys.modules["fastchat.serve.model_worker"].logger.setLevel(
+                log_level)
 
     MakeFastAPIOffline(app)
     app.title = f"FastChat LLM Server ({args.model_names[0]})"
@@ -242,9 +274,9 @@ def create_model_worker_app(log_level: str = "INFO", **kwargs) -> FastAPI:
 
 
 def create_openai_api_app(
-        controller_address: str,
-        api_keys: List = [],
-        log_level: str = "INFO",
+    controller_address: str,
+    api_keys: List = [],
+    log_level: str = "INFO",
 ) -> FastAPI:
     import fastchat.constants
     fastchat.constants.LOGDIR = LOG_PATH
@@ -271,6 +303,7 @@ def create_openai_api_app(
 
 
 def _set_app_event(app: FastAPI, started_event: mp.Event = None):
+
     @app.on_event("startup")
     async def on_startup():
         if started_event is not None:
@@ -295,12 +328,16 @@ def run_controller(log_level: str = "INFO", started_event: mp.Event = None):
     # add interface to release and load model worker
     @app.post("/release_worker")
     def release_worker(
-            model_name: str = Body(..., description="要释放模型的名称", samples=["chatglm-6b"]),
+            model_name: str = Body(...,
+                                   description="要释放模型的名称",
+                                   samples=["chatglm-6b"]),
             # worker_address: str = Body(None, description="要释放模型的地址，与名称二选一", samples=[FSCHAT_CONTROLLER_address()]),
             new_model_name: str = Body(None, description="释放后加载该模型"),
-            keep_origin: bool = Body(False, description="不释放原模型，加载新模型")
-    ) -> Dict:
+            keep_origin: bool = Body(False,
+                                     description="不释放原模型，加载新模型")) -> Dict:
+        # list_models---fastchat-controller的内部方法
         available_models = app._controller.list_models()
+        print(f"available_models_controller.list_models()={available_models}")
         if new_model_name in available_models:
             msg = f"要切换的LLM模型 {new_model_name} 已经存在"
             logger.info(msg)
@@ -315,7 +352,7 @@ def run_controller(log_level: str = "INFO", started_event: mp.Event = None):
             msg = f"the model {model_name} is not available"
             logger.error(msg)
             return {"code": 500, "msg": msg}
-
+        # 在FastAPI中，“worker”负责加载大语言模型的权重、tokenizer、对话模板等，同时对api_server传来的给定超参生成模型推断结果。简而言之，“worker”是处理模型推断和相关任务的组件。
         worker_address = app._controller.get_worker_address(model_name)
         if not worker_address:
             msg = f"can not find model_worker address for {model_name}"
@@ -324,7 +361,10 @@ def run_controller(log_level: str = "INFO", started_event: mp.Event = None):
 
         with get_httpx_client() as client:
             r = client.post(worker_address + "/release",
-                        json={"new_model_name": new_model_name, "keep_origin": keep_origin})
+                            json={
+                                "new_model_name": new_model_name,
+                                "keep_origin": keep_origin
+                            })
             if r.status_code != 200:
                 msg = f"failed to release model: {model_name}"
                 logger.error(msg)
@@ -362,11 +402,11 @@ def run_controller(log_level: str = "INFO", started_event: mp.Event = None):
 
 
 def run_model_worker(
-        model_name: str = LLM_MODELS[0],
-        controller_address: str = "",
-        log_level: str = "INFO",
-        q: mp.Queue = None,
-        started_event: mp.Event = None,
+    model_name: str = LLM_MODELS[0],
+    controller_address: str = "",
+    log_level: str = "INFO",
+    q: mp.Queue = None,
+    started_event: mp.Event = None,
 ):
     import uvicorn
     from fastapi import Body
@@ -378,7 +418,9 @@ def run_model_worker(
     host = kwargs.pop("host")
     port = kwargs.pop("port")
     kwargs["model_names"] = [model_name]
-    kwargs["controller_address"] = controller_address or fschat_controller_address()
+    kwargs[
+        "controller_address"] = controller_address or fschat_controller_address(
+        )
     kwargs["worker_address"] = fschat_model_worker_address(model_name)
     model_path = kwargs.get("model_path", "")
     kwargs["model_path"] = model_path
@@ -391,10 +433,9 @@ def run_model_worker(
 
     # add interface to release and load model
     @app.post("/release")
-    def release_model(
-        new_model_name: str = Body(None, description="释放后加载该模型"),
-        keep_origin: bool = Body(False, description="不释放原模型，加载新模型")
-    ) -> Dict:
+    def release_model(new_model_name: str = Body(None, description="释放后加载该模型"),
+                      keep_origin: bool = Body(
+                          False, description="不释放原模型，加载新模型")) -> Dict:
         if keep_origin:
             if new_model_name:
                 q.put([model_name, "start", new_model_name])
@@ -415,7 +456,8 @@ def run_openai_api(log_level: str = "INFO", started_event: mp.Event = None):
     set_httpx_config()
 
     controller_addr = fschat_controller_address()
-    app = create_openai_api_app(controller_addr, log_level=log_level)  # TODO: not support keys yet.
+    app = create_openai_api_app(
+        controller_addr, log_level=log_level)  # TODO: not support keys yet.
     _set_app_event(app, started_event)
 
     host = FSCHAT_OPENAI_API["host"]
@@ -448,14 +490,23 @@ def run_webui(started_event: mp.Event = None, run_mode: str = None):
     host = WEBUI_SERVER["host"]
     port = WEBUI_SERVER["port"]
 
-    cmd = ["streamlit", "run", "webui.py",
-            "--server.address", host,
-            "--server.port", str(port),
-            "--theme.base", "light",
-            "--theme.primaryColor", "#165dff",
-            "--theme.secondaryBackgroundColor", "#f5f5f5",
-            "--theme.textColor", "#000000",
-        ]
+    cmd = [
+        "streamlit",
+        "run",
+        "webui.py",
+        "--server.address",
+        host,
+        "--server.port",
+        str(port),
+        "--theme.base",
+        "light",
+        "--theme.primaryColor",
+        "#165dff",
+        "--theme.secondaryBackgroundColor",
+        "#f5f5f5",
+        "--theme.textColor",
+        "#000000",
+    ]
     if run_mode == "lite":
         cmd += [
             "--",
@@ -463,7 +514,7 @@ def run_webui(started_event: mp.Event = None, run_mode: str = None):
         ]
     p = subprocess.Popen(cmd)
     started_event.set()
-    p.wait()
+    p.wait()#上面的命令执行完成之后，才会取消阻塞当前的进程，进而通知可以继续执行代码行号（   webui_started.wait()  # 等待webui.py启动完成）下面的代码
 
 
 def parse_args() -> argparse.ArgumentParser:
@@ -472,13 +523,15 @@ def parse_args() -> argparse.ArgumentParser:
         "-a",
         "--all-webui",
         action="store_true",
-        help="run fastchat's controller/openai_api/model_worker servers, run api.py and webui.py",
+        help=
+        "run fastchat's controller/openai_api/model_worker servers, run api.py and webui.py",
         dest="all_webui",
     )
     parser.add_argument(
         "--all-api",
         action="store_true",
-        help="run fastchat's controller/openai_api/model_worker servers, run api.py",
+        help=
+        "run fastchat's controller/openai_api/model_worker servers, run api.py",
         dest="all_api",
     )
     parser.add_argument(
@@ -499,7 +552,7 @@ def parse_args() -> argparse.ArgumentParser:
         "--model-worker",
         action="store_true",
         help="run fastchat's model_worker server with specified model name. "
-             "specify --model-name if not using default LLM_MODELS",
+        "specify --model-name if not using default LLM_MODELS",
         dest="model_worker",
     )
     parser.add_argument(
@@ -509,14 +562,15 @@ def parse_args() -> argparse.ArgumentParser:
         nargs="+",
         default=LLM_MODELS,
         help="specify model name for model worker. "
-             "add addition names with space seperated to start multiple model workers.",
+        "add addition names with space seperated to start multiple model workers.",
         dest="model_name",
     )
     parser.add_argument(
         "-c",
         "--controller",
         type=str,
-        help="specify controller address the worker is registered to. default is FSCHAT_CONTROLLER",
+        help=
+        "specify controller address the worker is registered to. default is FSCHAT_CONTROLLER",
         dest="controller_address",
     )
     parser.add_argument(
@@ -562,13 +616,25 @@ def dump_server_info(after_start=False, args=None):
     import langchain
     import fastchat
     from server.utils import api_address, webui_address
+    """ 
+    没有`f`也可以打印格式化的字符串，但是需要使用`format()`方法。例如：
 
+    print("操作系统：{}.".format(platform.platform()))
+    print("python版本：{}".format(sys.version))
+    print("项目版本：{}".format(VERSION))
+    print("langchain版本：{}. fastchat版本：{}".format(langchain.__version__, fastchat.__version__))
+
+    使用`format()`方法需要手动指定变量位置，例如`{}`，然后将变量插入到指定位置。这种方式不如使用`f`方便，需要多一个步骤。
+
+    """
     print("\n")
     print("=" * 30 + "Langchain-Chatchat Configuration" + "=" * 30)
     print(f"操作系统：{platform.platform()}.")
     print(f"python版本：{sys.version}")
     print(f"项目版本：{VERSION}")
-    print(f"langchain版本：{langchain.__version__}. fastchat版本：{fastchat.__version__}")
+    print(
+        f"langchain版本：{langchain.__version__}. fastchat版本：{fastchat.__version__}"
+    )
     print("\n")
 
     models = LLM_MODELS
@@ -579,6 +645,7 @@ def dump_server_info(after_start=False, args=None):
     print(f"当前启动的LLM模型：{models} @ {llm_device()}")
 
     for model in models:
+        # pprint()函数是Python的pprint模块中的一个函数，用于将对象（如字典）以格式化的方式打印出来
         pprint(get_model_worker_config(model))
     print(f"当前Embbedings模型： {EMBEDDING_MODEL} @ {embedding_device()}")
 
@@ -604,14 +671,21 @@ async def start_main_server():
         Python 3.9 has `signal.strsignal(signalnum)` so this closure would not be needed.
         Also, 3.8 includes `signal.valid_signals()` that can be used to create a mapping for the same purpose.
         """
+
         def f(signal_received, frame):
             raise KeyboardInterrupt(f"{signalname} received")
+
         return f
 
     # This will be inherited by the child process if it is forked (not spawned)
     signal.signal(signal.SIGINT, handler("SIGINT"))
     signal.signal(signal.SIGTERM, handler("SIGTERM"))
 
+    # 设置多进程的启动方式为spawn
+    # 设置启动方法为"spawn"可以提高Python程序在多进程模式下的性能。
+    # 因为"spawn"模式是在新进程中启动子进程，而"fork"模式是在当前进程中启动子进程，
+    # 后者可能会导致不必要的内存复制，从而影响性能。此外，在某些情况下，
+    # 使用"spawn"模式还可以避免因为子进程继承父进程的某些属性而导致的问题。
     mp.set_start_method("spawn")
     manager = mp.Manager()
     run_mode = None
@@ -653,12 +727,22 @@ async def start_main_server():
     processes = {"online_api": {}, "model_worker": {}}
 
     def process_count():
-        return len(processes) + len(processes["online_api"]) + len(processes["model_worker"]) - 2
+        return len(processes) + len(processes["online_api"]) + len(
+            processes["model_worker"]) - 2
 
     if args.quiet or not log_verbose:
+        logger.info(f"log级别是不显示详细信息:ERROR")
         log_level = "ERROR"
     else:
+        logger.info(f"log级别是显示详细信息：INFO")
         log_level = "INFO"
+    """ 在Python中，`f`前缀用于字符串格式化。它允许你使用大括号（`{}`）插入变量值，然后使用相应的格式化代码（如数字、字符串等）来格式化这些变量值。
+
+    在这个例子中，`name=f"controller",`使用了`f`前缀，表示这是一个格式化字符串。它包含一个格式化表达式（`{}`），用于将进程的ID插入到名称中。
+
+    使用`f`前缀可以提高代码的可读性和可维护性，因为它避免了手动插入变量值和格式化代码的繁琐过程。同时，它也提高了代码的性能，因为它避免了字符串连接操作，而是直接将变量值插入到字符串中。
+
+    总之，使用`f`前缀可以简化代码，提高可读性和可维护性，同时也可以提高代码的性能。 """
 
     controller_started = manager.Event()
     if args.openai_api:
@@ -699,9 +783,8 @@ async def start_main_server():
     if args.api_worker:
         for model_name in args.model_name:
             config = get_model_worker_config(model_name)
-            if (config.get("online_api")
-                and config.get("worker_class")
-                and model_name in FSCHAT_MODEL_WORKERS):
+            if (config.get("online_api") and config.get("worker_class")
+                    and model_name in FSCHAT_MODEL_WORKERS):
                 e = manager.Event()
                 model_worker_started.append(e)
                 process = Process(
@@ -741,12 +824,12 @@ async def start_main_server():
     else:
         try:
             # 保证任务收到SIGINT后，能够正常退出
-            if p:= processes.get("controller"):
+            if p := processes.get("controller"):
                 p.start()
                 p.name = f"{p.name} ({p.pid})"
-                controller_started.wait() # 等待controller启动完成
+                controller_started.wait()  # 等待controller启动完成
 
-            if p:= processes.get("openai_api"):
+            if p := processes.get("openai_api"):
                 p.start()
                 p.name = f"{p.name} ({p.pid})"
 
@@ -762,33 +845,34 @@ async def start_main_server():
             for e in model_worker_started:
                 e.wait()
 
-            if p:= processes.get("api"):
+            if p := processes.get("api"):
                 p.start()
                 p.name = f"{p.name} ({p.pid})"
-                api_started.wait() # 等待api.py启动完成
+                api_started.wait()  # 等待api.py启动完成
 
-            if p:= processes.get("webui"):
+            if p := processes.get("webui"):
                 p.start()
                 p.name = f"{p.name} ({p.pid})"
-                webui_started.wait() # 等待webui.py启动完成
+                webui_started.wait()  # 等待webui.py启动完成
 
             dump_server_info(after_start=True, args=args)
 
             while True:
-                cmd = queue.get() # 收到切换模型的消息
+                cmd = queue.get()  # 收到切换模型的消息
                 e = manager.Event()
                 if isinstance(cmd, list):
                     model_name, cmd, new_model_name = cmd
-                    if cmd == "start": # 运行新模型
+                    if cmd == "start":  # 运行新模型
                         logger.info(f"准备启动新模型进程：{new_model_name}")
                         process = Process(
                             target=run_model_worker,
                             name=f"model_worker - {new_model_name}",
-                            kwargs=dict(model_name=new_model_name,
-                                        controller_address=args.controller_address,
-                                        log_level=log_level,
-                                        q=queue,
-                                        started_event=e),
+                            kwargs=dict(
+                                model_name=new_model_name,
+                                controller_address=args.controller_address,
+                                log_level=log_level,
+                                q=queue,
+                                started_event=e),
                             daemon=True,
                         )
                         process.start()
@@ -797,7 +881,8 @@ async def start_main_server():
                         e.wait()
                         logger.info(f"成功启动新模型进程：{new_model_name}")
                     elif cmd == "stop":
-                        if process := processes["model_worker"].get(model_name):
+                        if process := processes["model_worker"].get(
+                                model_name):
                             time.sleep(1)
                             process.terminate()
                             process.join()
@@ -805,7 +890,8 @@ async def start_main_server():
                         else:
                             logger.error(f"未找到模型进程：{model_name}")
                     elif cmd == "replace":
-                        if process := processes["model_worker"].pop(model_name, None):
+                        if process := processes["model_worker"].pop(
+                                model_name, None):
                             logger.info(f"停止模型进程：{model_name}")
                             start_time = datetime.now()
                             time.sleep(1)
@@ -814,11 +900,12 @@ async def start_main_server():
                             process = Process(
                                 target=run_model_worker,
                                 name=f"model_worker - {new_model_name}",
-                                kwargs=dict(model_name=new_model_name,
-                                            controller_address=args.controller_address,
-                                            log_level=log_level,
-                                            q=queue,
-                                            started_event=e),
+                                kwargs=dict(
+                                    model_name=new_model_name,
+                                    controller_address=args.controller_address,
+                                    log_level=log_level,
+                                    q=queue,
+                                    started_event=e),
                                 daemon=True,
                             )
                             process.start()
@@ -826,10 +913,10 @@ async def start_main_server():
                             processes["model_worker"][new_model_name] = process
                             e.wait()
                             timing = datetime.now() - start_time
-                            logger.info(f"成功启动新模型进程：{new_model_name}。用时：{timing}。")
+                            logger.info(
+                                f"成功启动新模型进程：{new_model_name}。用时：{timing}。")
                         else:
                             logger.error(f"未找到模型进程：{model_name}")
-
 
             # for process in processes.get("model_worker", {}).values():
             #     process.join()
@@ -850,7 +937,12 @@ async def start_main_server():
             # Send SIGINT if process doesn't exit quickly enough, and kill it as last resort
             # .is_alive() also implicitly joins the process (good practice in linux)
             # while alive_procs := [p for p in processes.values() if p.is_alive()]:
-
+            #使用 'spawn' 作为启动方法时，如果父进程被杀死，子进程通常会继续运行。
+            # 这是因为 'spawn' 方法为子进程创建了一个新的 Python 解释器，与父进程是独立的。
+            # 所以，即使父进程被终止，子进程通常能够继续执行。
+            # 但是，如果父进程在子进程之前结束，并且没有使用适当的进程间通信机制（例如管道或共享内存），
+            # 子进程可能无法知道父进程已经结束。
+            # 因为前面的每个进程中又启动了子进程，并且收到spawn的影响，所以可以把父进程都杀死
             for p in processes.values():
                 logger.warning("Sending SIGKILL to %s", p)
                 # Queues and other inter-process communication primitives can break when
@@ -865,20 +957,25 @@ async def start_main_server():
             for p in processes.values():
                 logger.info("Process status: %s", p)
 
+
 if __name__ == "__main__":
 
+    # 判断python版本是否小于3.10
     if sys.version_info < (3, 10):
+        # 使用python2的异步IO
         loop = asyncio.get_event_loop()
     else:
         try:
+            # 获取当前运行的事件循环
             loop = asyncio.get_running_loop()
         except RuntimeError:
+            # 创建一个新的事件循环
             loop = asyncio.new_event_loop()
 
+        # 设置事件循环
         asyncio.set_event_loop(loop)
     # 同步调用协程代码
     loop.run_until_complete(start_main_server())
-
 
 # 服务启动后接口调用示例：
 # import openai

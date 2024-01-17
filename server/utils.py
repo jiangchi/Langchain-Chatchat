@@ -4,8 +4,8 @@ from typing import List
 from fastapi import FastAPI
 from pathlib import Path
 import asyncio
-from configs import (LLM_MODELS, LLM_DEVICE, EMBEDDING_DEVICE,
-                     MODEL_PATH, MODEL_ROOT_PATH, ONLINE_LLM_MODEL, logger, log_verbose,
+from configs import (LLM_MODELS, LLM_DEVICE, EMBEDDING_DEVICE, MODEL_PATH,
+                     MODEL_ROOT_PATH, ONLINE_LLM_MODEL, logger, log_verbose,
                      FSCHAT_MODEL_WORKERS, HTTPX_DEFAULT_TIMEOUT)
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -32,57 +32,57 @@ async def wrap_done(fn: Awaitable, event: asyncio.Event):
 
 
 def get_ChatOpenAI(
-        model_name: str,
-        temperature: float,
-        max_tokens: int = None,
-        streaming: bool = True,
-        callbacks: List[Callable] = [],
-        verbose: bool = True,
-        **kwargs: Any,
+    model_name: str,
+    temperature: float,
+    max_tokens: int = None,
+    streaming: bool = True,
+    callbacks: List[Callable] = [],
+    verbose: bool = True,
+    **kwargs: Any,
 ) -> ChatOpenAI:
     config = get_model_worker_config(model_name)
     if model_name == "openai-api":
         model_name = config.get("model_name")
-    model = ChatOpenAI(
-        streaming=streaming,
-        verbose=verbose,
-        callbacks=callbacks,
-        openai_api_key=config.get("api_key", "EMPTY"),
-        openai_api_base=config.get("api_base_url", fschat_openai_api_address()),
-        model_name=model_name,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        openai_proxy=config.get("openai_proxy"),
-        **kwargs
-    )
+    # 参考 https://api.python.langchain.com/en/stable/chat_models/langchain_community.chat_models.openai.ChatOpenAI.html?highlight=chatopenai#langchain_community.chat_models.openai.ChatOpenAI
+    model = ChatOpenAI(streaming=streaming,
+                       verbose=verbose,
+                       callbacks=callbacks,
+                       openai_api_key=config.get("api_key", "EMPTY"),
+                       openai_api_base=config.get("api_base_url",
+                                                  fschat_openai_api_address()),
+                       model_name=model_name,
+                       temperature=temperature,
+                       max_tokens=max_tokens,
+                       openai_proxy=config.get("openai_proxy"),
+                       **kwargs)
     return model
 
+
 def get_OpenAI(
-        model_name: str,
-        temperature: float,
-        max_tokens: int = None,
-        streaming: bool = True,
-        echo: bool = True,
-        callbacks: List[Callable] = [],
-        verbose: bool = True,
-        **kwargs: Any,
+    model_name: str,
+    temperature: float,
+    max_tokens: int = None,
+    streaming: bool = True,
+    echo: bool = True,
+    callbacks: List[Callable] = [],
+    verbose: bool = True,
+    **kwargs: Any,
 ) -> OpenAI:
     config = get_model_worker_config(model_name)
     if model_name == "openai-api":
         model_name = config.get("model_name")
-    model = OpenAI(
-        streaming=streaming,
-        verbose=verbose,
-        callbacks=callbacks,
-        openai_api_key=config.get("api_key", "EMPTY"),
-        openai_api_base=config.get("api_base_url", fschat_openai_api_address()),
-        model_name=model_name,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        openai_proxy=config.get("openai_proxy"),
-        echo=echo,
-        **kwargs
-    )
+    model = OpenAI(streaming=streaming,
+                   verbose=verbose,
+                   callbacks=callbacks,
+                   openai_api_key=config.get("api_key", "EMPTY"),
+                   openai_api_base=config.get("api_base_url",
+                                              fschat_openai_api_address()),
+                   model_name=model_name,
+                   temperature=temperature,
+                   max_tokens=max_tokens,
+                   openai_proxy=config.get("openai_proxy"),
+                   echo=echo,
+                   **kwargs)
     return model
 
 
@@ -118,26 +118,25 @@ class ChatMessage(BaseModel):
     response: str = pydantic.Field(..., description="Response text")
     history: List[List[str]] = pydantic.Field(..., description="History text")
     source_documents: List[str] = pydantic.Field(
-        ..., description="List of source documents and their scores"
-    )
+        ..., description="List of source documents and their scores")
 
     class Config:
         schema_extra = {
             "example": {
-                "question": "工伤保险如何办理？",
-                "response": "根据已知信息，可以总结如下：\n\n1. 参保单位为员工缴纳工伤保险费，以保障员工在发生工伤时能够获得相应的待遇。\n"
-                            "2. 不同地区的工伤保险缴费规定可能有所不同，需要向当地社保部门咨询以了解具体的缴费标准和规定。\n"
-                            "3. 工伤从业人员及其近亲属需要申请工伤认定，确认享受的待遇资格，并按时缴纳工伤保险费。\n"
-                            "4. 工伤保险待遇包括工伤医疗、康复、辅助器具配置费用、伤残待遇、工亡待遇、一次性工亡补助金等。\n"
-                            "5. 工伤保险待遇领取资格认证包括长期待遇领取人员认证和一次性待遇领取人员认证。\n"
-                            "6. 工伤保险基金支付的待遇项目包括工伤医疗待遇、康复待遇、辅助器具配置费用、一次性工亡补助金、丧葬补助金等。",
-                "history": [
-                    [
-                        "工伤保险是什么？",
-                        "工伤保险是指用人单位按照国家规定，为本单位的职工和用人单位的其他人员，缴纳工伤保险费，"
-                        "由保险机构按照国家规定的标准，给予工伤保险待遇的社会保险制度。",
-                    ]
-                ],
+                "question":
+                "工伤保险如何办理？",
+                "response":
+                "根据已知信息，可以总结如下：\n\n1. 参保单位为员工缴纳工伤保险费，以保障员工在发生工伤时能够获得相应的待遇。\n"
+                "2. 不同地区的工伤保险缴费规定可能有所不同，需要向当地社保部门咨询以了解具体的缴费标准和规定。\n"
+                "3. 工伤从业人员及其近亲属需要申请工伤认定，确认享受的待遇资格，并按时缴纳工伤保险费。\n"
+                "4. 工伤保险待遇包括工伤医疗、康复、辅助器具配置费用、伤残待遇、工亡待遇、一次性工亡补助金等。\n"
+                "5. 工伤保险待遇领取资格认证包括长期待遇领取人员认证和一次性待遇领取人员认证。\n"
+                "6. 工伤保险基金支付的待遇项目包括工伤医疗待遇、康复待遇、辅助器具配置费用、一次性工亡补助金、丧葬补助金等。",
+                "history": [[
+                    "工伤保险是什么？",
+                    "工伤保险是指用人单位按照国家规定，为本单位的职工和用人单位的其他人员，缴纳工伤保险费，"
+                    "由保险机构按照国家规定的标准，给予工伤保险待遇的社会保险制度。",
+                ]],
                 "source_documents": [
                     "出处 [1] 广州市单位从业的特定人员参加工伤保险办事指引.docx：\n\n\t"
                     "( 一)  从业单位  (组织)  按“自愿参保”原则，  为未建 立劳动关系的特定从业人员单项参加工伤保险 、缴纳工伤保 险费。",
@@ -206,11 +205,11 @@ def iter_over_async(ait, loop=None):
 
 
 def MakeFastAPIOffline(
-        app: FastAPI,
-        static_dir=Path(__file__).parent / "static",
-        static_url="/static-offline-docs",
-        docs_url: Optional[str] = "/docs",
-        redoc_url: Optional[str] = "/redoc",
+    app: FastAPI,
+    static_dir=Path(__file__).parent / "static",
+    static_url="/static-offline-docs",
+    docs_url: Optional[str] = "/docs",
+    redoc_url: Optional[str] = "/redoc",
 ) -> None:
     """patch the FastAPI obj that doesn't rely on CDN for the documentation page"""
     from fastapi import Request
@@ -285,6 +284,7 @@ def MakeFastAPIOffline(
 
 # 从model_config中获取模型信息
 
+
 def list_embed_models() -> List[str]:
     '''
     get names of configured embedding models
@@ -315,7 +315,8 @@ def get_model_path(model_name: str, type: str = None) -> Optional[str]:
         for v in MODEL_PATH.values():
             paths.update(v)
 
-    if path_str := paths.get(model_name):  # 以 "chatglm-6b": "THUDM/chatglm-6b-new" 为例，以下都是支持的路径
+    if path_str := paths.get(
+            model_name):  # 以 "chatglm-6b": "THUDM/chatglm-6b-new" 为例，以下都是支持的路径
         path = Path(path_str)
         if path.is_dir():  # 任意绝对路径
             return str(path)
@@ -326,15 +327,18 @@ def get_model_path(model_name: str, type: str = None) -> Optional[str]:
             if path.is_dir():  # use key, {MODEL_ROOT_PATH}/chatglm-6b
                 return str(path)
             path = root_path / path_str
-            if path.is_dir():  # use value, {MODEL_ROOT_PATH}/THUDM/chatglm-6b-new
+            if path.is_dir(
+            ):  # use value, {MODEL_ROOT_PATH}/THUDM/chatglm-6b-new
                 return str(path)
             path = root_path / path_str.split("/")[-1]
-            if path.is_dir():  # use value split by "/", {MODEL_ROOT_PATH}/chatglm-6b-new
+            if path.is_dir(
+            ):  # use value split by "/", {MODEL_ROOT_PATH}/chatglm-6b-new
                 return str(path)
         return path_str  # THUDM/chatglm06b
 
 
 # 从server_config中获取服务信息
+
 
 def get_model_worker_config(model_name: str = None) -> dict:
     '''
@@ -433,13 +437,14 @@ def get_prompt_template(type: str, name: str) -> Optional[str]:
 
     from configs import prompt_config
     import importlib
-    importlib.reload(prompt_config)  # TODO: 检查configs/prompt_config.py文件有修改再重新加载
+    importlib.reload(
+        prompt_config)  # TODO: 检查configs/prompt_config.py文件有修改再重新加载
     return prompt_config.PROMPT_TEMPLATES[type].get(name)
 
 
 def set_httpx_config(
-        timeout: float = HTTPX_DEFAULT_TIMEOUT,
-        proxy: Union[str, Dict] = None,
+    timeout: float = HTTPX_DEFAULT_TIMEOUT,
+    proxy: Union[str, Dict] = None,
 ):
     '''
     设置httpx默认timeout。httpx默认timeout是5秒，在请求LLM回答时不够用。
@@ -470,7 +475,10 @@ def set_httpx_config(
         os.environ[k] = v
 
     # set host to bypass proxy
-    no_proxy = [x.strip() for x in os.environ.get("no_proxy", "").split(",") if x.strip()]
+    no_proxy = [
+        x.strip() for x in os.environ.get("no_proxy", "").split(",")
+        if x.strip()
+    ]
     no_proxy += [
         # do not use proxy for locahost
         "http://127.0.0.1",
@@ -478,9 +486,9 @@ def set_httpx_config(
     ]
     # do not use proxy for user deployed fastchat servers
     for x in [
-        fschat_controller_address(),
-        fschat_model_worker_address(),
-        fschat_openai_api_address(),
+            fschat_controller_address(),
+            fschat_model_worker_address(),
+            fschat_openai_api_address(),
     ]:
         host = ":".join(x.split(":")[:2])
         if host not in no_proxy:
@@ -510,7 +518,9 @@ def detect_device() -> Literal["cuda", "mps", "cpu"]:
     return "cpu"
 
 
+# 使用Literal类型注释可以确保函数或变量的值只能出现在指定的列表中
 def llm_device(device: str = None) -> Literal["cuda", "mps", "cpu"]:
+    # 在Python中，or是一个逻辑运算符，它表示如果第一个操作数为True，则返回第一个操作数，否则返回第二个操作数。因此，这个表达式的结果是device的值，如果device不为None，否则它是LLM_DEVICE的值。
     device = device or LLM_DEVICE
     if device not in ["cuda", "mps", "cpu"]:
         device = detect_device()
@@ -525,8 +535,8 @@ def embedding_device(device: str = None) -> Literal["cuda", "mps", "cpu"]:
 
 
 def run_in_thread_pool(
-        func: Callable,
-        params: List[Dict] = [],
+    func: Callable,
+    params: List[Dict] = [],
 ) -> Generator:
     '''
     在线程池中批量运行任务，并将运行结果以生成器的形式返回。
@@ -543,10 +553,12 @@ def run_in_thread_pool(
 
 
 def get_httpx_client(
-        use_async: bool = False,
-        proxies: Union[str, Dict] = None,
-        timeout: float = HTTPX_DEFAULT_TIMEOUT,
-        **kwargs,
+    use_async: bool = False,
+    proxies: Union[str, Dict] = None,
+    timeout: float = HTTPX_DEFAULT_TIMEOUT,
+    # 这里，星号将列表中的每个元素展开并作为单独的参数传递给函数。
+    # 在这段代码中，**kwargs 表示接受任意数量的键值对参数，其中键和值都是字符串。这允许函数接受来自调用者的任何关键字参数，并将它们存储在一个名为 kwargs 的字典中。
+    **kwargs,
 ) -> Union[httpx.Client, httpx.AsyncClient]:
     '''
     helper to get httpx client with default proxies that bypass local addesses.
@@ -558,9 +570,9 @@ def get_httpx_client(
     }
     # do not use proxy for user deployed fastchat servers
     for x in [
-        fschat_controller_address(),
-        fschat_model_worker_address(),
-        fschat_openai_api_address(),
+            fschat_controller_address(),
+            fschat_model_worker_address(),
+            fschat_openai_api_address(),
     ]:
         host = ":".join(x.split(":")[:2])
         default_proxies.update({host: None})
@@ -568,20 +580,21 @@ def get_httpx_client(
     # get proxies from system envionrent
     # proxy not str empty string, None, False, 0, [] or {}
     default_proxies.update({
-        "http://": (os.environ.get("http_proxy")
-                    if os.environ.get("http_proxy") and len(os.environ.get("http_proxy").strip())
-                    else None),
-        "https://": (os.environ.get("https_proxy")
-                     if os.environ.get("https_proxy") and len(os.environ.get("https_proxy").strip())
-                     else None),
-        "all://": (os.environ.get("all_proxy")
-                   if os.environ.get("all_proxy") and len(os.environ.get("all_proxy").strip())
-                   else None),
+        "http://":
+        (os.environ.get("http_proxy") if os.environ.get("http_proxy")
+         and len(os.environ.get("http_proxy").strip()) else None),
+        "https://":
+        (os.environ.get("https_proxy") if os.environ.get("https_proxy")
+         and len(os.environ.get("https_proxy").strip()) else None),
+        "all://": (os.environ.get("all_proxy") if os.environ.get("all_proxy")
+                   and len(os.environ.get("all_proxy").strip()) else None),
     })
     for host in os.environ.get("no_proxy", "").split(","):
         if host := host.strip():
             # default_proxies.update({host: None}) # Origin code
-            default_proxies.update({'all://' + host: None})  # PR 1838 fix, if not add 'all://', httpx will raise error
+            default_proxies.update({
+                'all://' + host: None
+            })  # PR 1838 fix, if not add 'all://', httpx will raise error
 
     # merge default proxies with user provided proxies
     if isinstance(proxies, str):

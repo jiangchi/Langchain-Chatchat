@@ -27,5 +27,6 @@ class ConversationCallbackHandler(BaseCallbackHandler):
         pass
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
+        # 预测这段代码会多次被调用，打印log观察一下
         answer = response.generations[0][0].text
         update_message(self.message_id, answer)
