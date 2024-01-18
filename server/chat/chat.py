@@ -15,7 +15,7 @@ from server.utils import get_prompt_template
 from server.memory.conversation_db_buffer_memory import ConversationBufferDBMemory
 from server.db.repository import add_message_to_db
 from server.callback_handler.conversation_callback_handler import ConversationCallbackHandler
-
+from configs import logger
 
 async def chat(query: str = Body(..., description="用户输入", examples=["恼羞成怒"]),
                conversation_id: str = Body("", description="对话框ID"),
@@ -38,6 +38,7 @@ async def chat(query: str = Body(..., description="用户输入", examples=["恼
         nonlocal history, max_tokens
         callback = AsyncIteratorCallbackHandler()
         callbacks = [callback]
+        logger.setLevel("INFO")
         memory = None
 
         if conversation_id:
@@ -90,12 +91,14 @@ async def chat(query: str = Body(..., description="用户输入", examples=["恼
         if stream:
             async for token in callback.aiter():
                 # Use server-sent-events to stream the response
+                logger.info(f"xxxstreamxxx==={token}")
                 yield json.dumps(
                     {"text": token, "message_id": message_id},
                     ensure_ascii=False)
         else:
             answer = ""
             async for token in callback.aiter():
+                logger.info(f"xxxxxx==={token}")
                 answer += token
             yield json.dumps(
                 {"text": answer, "message_id": message_id},

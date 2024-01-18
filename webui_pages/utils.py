@@ -185,7 +185,7 @@ class ApiRequest:
                             try:
                                 data = json.loads(chunk)
                                 # pprint(data, depth=1)
-                                log.info("This is an informational ret_sync....................=%s", data)
+                                logger.info("This is an informational ret_sync....................=%s", data)
                                 yield data
                             except Exception as e:
                                 msg = f"接口返回json错误： ‘{chunk}’。错误信息是：{e}。"
@@ -342,7 +342,7 @@ class ApiRequest:
 
         # print(f"received input message:")
         # pprint(data)
-        log.info("This is an informational chat_chat log....................=%s", data)
+        # log.info("This is an informational chat_chat log....................=%s", data)
         logger.info("This is an informational chat_chat logger....................=%s", data)
         """ 这段代码是使用 Python 的 requests 库发送 POST 请求到指定的 URL，并将响应内容存储在 response 变量中。
 
