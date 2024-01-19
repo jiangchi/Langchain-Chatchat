@@ -6,6 +6,7 @@ import sys
 from multiprocessing import Process
 from datetime import datetime
 from pprint import pprint
+from pyngrok import ngrok
 
 # 设置numexpr最大线程数，默认为CPU核心数
 try:
@@ -65,6 +66,9 @@ from server.utils import (fschat_controller_address,
 import argparse
 from typing import Tuple, List, Dict
 from configs import VERSION
+
+# 替换 'your_auth_token' 为你在 ngrok 官网获取的 Authtoken
+ngrok.set_auth_token("2awYjvK4CC7Lm6K5sz4cmESvoQU_5PNSnQjMncgxKG9n5CEys")
 
 
 def create_controller_app(
@@ -486,7 +490,8 @@ def run_api_server(started_event: mp.Event = None, run_mode: str = None):
 def run_webui(started_event: mp.Event = None, run_mode: str = None):
     from server.utils import set_httpx_config
     set_httpx_config()
-
+    import time
+    import socket
     host = WEBUI_SERVER["host"]
     port = WEBUI_SERVER["port"]
 
@@ -514,7 +519,41 @@ def run_webui(started_event: mp.Event = None, run_mode: str = None):
         ]
     p = subprocess.Popen(cmd)
     started_event.set()
-    p.wait()#上面的命令执行完成之后，才会取消阻塞当前的进程，进而通知可以继续执行代码行号（   webui_started.wait()  # 等待webui.py启动完成）下面的代码
+
+    def is_port_open(port):
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        result = sock.connect_ex((host, port))
+        sock.close()
+        return result == 0
+
+    def wait_for_streamlit(port, timeout=30):
+        start_time = time.time()
+        logger.info("Public URL for Streamlit app: {}".format("Port is open" if is_port_open(port) else "Port is closed"))
+        logger.info(f"Public URL for Streamlit app: {'Port is open' if is_port_open(port) else 'Port is closed'}")
+        while not is_port_open(port):
+            time.sleep(1)
+            logger.info("Streamlit is not yet running. Waiting...............")
+            if time.time() - start_time > timeout:
+                logger.info("Timeout waiting for Streamlit to start")
+                raise TimeoutError("Timeout waiting for Streamlit to start")
+    # 等待一段时间，确保 Streamlit 本地服务已经启动,可以用2个内嵌函数替换
+    # time.sleep(10)
+    # 等待 Streamlit 本地服务启动
+    wait_for_streamlit(port)
+    logger.info("Streamlit has started. Port is open.....................")
+    # 启动 ngrok，将本地服务映射到公共 URL
+    logger.info("Public URL for Streamlit app:wait_for_streamlit打开 ")
+    public_url = ngrok.connect(port)
+    logger.info(f"Public URL for Streamlit app: {public_url}")
+    # 等待 Streamlit 进程结束
+    # wait作用：消阻塞当前的进程，不会执行后面的代码下面的代码
+    p.wait()
+
+    # webui关闭在关闭ngrok
+    ngrok.kill()
+    ngrok_process = ngrok.get_ngrok_process()
+    # 再次确认ngrok是否被关闭
+    ngrok_process.proc.wait()
 
 
 def parse_args() -> argparse.ArgumentParser:
