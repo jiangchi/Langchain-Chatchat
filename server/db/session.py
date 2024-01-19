@@ -9,6 +9,7 @@ def session_scope() -> Session:
     """上下文管理器用于自动获取 Session, 避免错误"""
     session = SessionLocal()
     try:
+        # 提供session对象给with语句使用，yield 语句的执行暂停，允许 with 语句块内的代码执行。
         yield session
         session.commit()
     except:
