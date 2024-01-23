@@ -108,7 +108,6 @@ async def chat(
             chat_prompt = ChatPromptTemplate.from_messages([input_msg])
             logger.info("使用默认聊天提示，没有历史消息。")
         chain = LLMChain(prompt=chat_prompt, llm=model, memory=memory)
-        logger.info(f"最终聊天提示: {chat_prompt}")
         # Begin a task that runs in the background.
         task = asyncio.create_task(
             wrap_done(

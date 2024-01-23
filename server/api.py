@@ -1,7 +1,7 @@
 import nltk
 import sys
 import os
-
+# 定位目录为目录，这样下面的导入才可以正常找到
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from configs import VERSION
